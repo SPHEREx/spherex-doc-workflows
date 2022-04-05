@@ -1,0 +1,105 @@
+name: Build SPHEREx TeX
+
+'on':
+  workflow_call:
+    inputs:
+      doc:
+        description: 'The document name, i.e. SSDC-MS-123'
+        required: true
+        type: string
+      upload:
+        description: 'Toggle to enable uploads to spherex-docs.ipac.caltech.edu'
+        required: false
+        default: true
+        type: boolean
+    secrets:
+      docs_api_password:
+        description: 'LTD password, usually the DOCS_API_PASSWORD org-wide secret.'
+        required: true
+
+jobs:
+  tex:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # full history for metadata
+          submodules: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install -U pip
+          python -m pip install lander==2.0.0a7
+          python -m pip install git+https://github.com/SPHEREx/spherex-lander-plugin.git@main#egg=spherex-lander-plugin
+          python -m pip install ltd-conveyor==0.9.0a2
+
+      - name: Install pandoc
+        run: brew install pandoc # usually a newer pandoc than apt-get
+
+      - name: Get short SHA
+        uses: benjlevesque/short-sha@v1.2
+        id: short-sha
+
+      - name: Set version string
+        id: short-version
+        run: |
+          if [ $GITHUB_REF_TYPE == 'tag' ]; then
+              # version is a tag
+              echo "::set-output name=VERSION::${{ github.ref_name }}"
+          else
+              # For branch push events, use the SHA
+              echo '::set-output name=VERSION::${{ steps.short-sha.outputs.sha }}'
+          fi
+
+      - name: Set PDF filename
+        id: pdfname
+        run: echo '::set-output name=PDF_FILENAME::${{ inputs.doc }}.${{ steps.short-version.outputs.VERSION }}.pdf'
+
+      - name: Log into GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: token
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: TeX build
+        run: |
+          docker run -v `pwd`:/workspace -w /workspace ghcr.io/spherex/spherex-tex:latest sh -c 'make'
+
+      - name: Rename PDF
+        run: mv ${{ inputs.doc }}.pdf ${{ steps.pdfname.outputs.PDF_FILENAME }}
+
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{steps.pdfname.outputs.PDF_FILENAME }}
+          path: ${{steps.pdfname.outputs.PDF_FILENAME }}
+          retention-days: 14
+
+      - name: Build landing page
+        if: inputs.upload && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        run: |
+          lander build --pdf ${{steps.pdfname.outputs.PDF_FILENAME }}
+
+      - name: Upload landing page
+        if: inputs.upload && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        env:
+          LTD_PASSWORD: ${{ secrets.docs_api_password }}
+          LTD_USERNAME: spherex-upload
+          DOCNAME: ${{ inputs.doc }}
+        run: |
+          ltd --host https://docs-api.ipac.caltech.edu upload --org spherex --project ${DOCNAME,,} --gh --dir _build
+
+      - name: Upload release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ steps.pdfname.outputs.PDF_FILENAME }}
