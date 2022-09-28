@@ -40,8 +40,12 @@ jobs:
           python -m pip install git+https://github.com/SPHEREx/spherex-lander-plugin.git@main#egg=spherex-lander-plugin
           python -m pip install ltd-conveyor==0.9.0a2
 
-      - name: Install pandoc
-        run: brew install pandoc # usually a newer pandoc than apt-get
+      - name: Install Pandoc
+        run: |
+          downloadUrl="https://github.com/jgm/pandoc/releases/download/2.19.2/pandoc-2.19.2-1-amd64.deb"
+          wget --no-verbose "$downloadUrl"
+          sudo dpkg -i "${downloadUrl##*/}"
+          pandoc --version
 
       - name: Get short SHA
         uses: benjlevesque/short-sha@v1.2
