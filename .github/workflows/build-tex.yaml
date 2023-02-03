@@ -48,7 +48,7 @@ jobs:
           pandoc --version
 
       - name: Get short SHA
-        uses: benjlevesque/short-sha@2.1
+        uses: benjlevesque/short-sha@v2.1
         id: short-sha
 
       - name: Set version string
@@ -56,15 +56,15 @@ jobs:
         run: |
           if [ $GITHUB_REF_TYPE == 'tag' ]; then
               # version is a tag
-              echo "::set-output name=VERSION::${{ github.ref_name }}"
+              echo "VERSION=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
               # For branch push events, use the SHA
-              echo '::set-output name=VERSION::${{ steps.short-sha.outputs.sha }}'
+              echo "VERSION=${{ steps.short-sha.outputs.sha }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Set PDF filename
         id: pdfname
-        run: echo '::set-output name=PDF_FILENAME::${{ inputs.doc }}.${{ steps.short-version.outputs.VERSION }}.pdf'
+        run: echo "PDF_FILENAME=${{ inputs.doc }}.${{ steps.short-version.outputs.VERSION }}.pdf" >> $GITHUB_OUTPUT
 
       - name: Log into GitHub Container Registry
         uses: docker/login-action@v2
