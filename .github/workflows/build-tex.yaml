@@ -44,6 +44,7 @@ jobs:
           downloadUrl="https://github.com/jgm/pandoc/releases/download/2.19.2/pandoc-2.19.2-1-amd64.deb"
           wget --no-verbose "$downloadUrl"
           sudo dpkg -i "${downloadUrl##*/}"
+          rm "pandoc-2.19.2-1-amd64.deb"
           pandoc --version
 
       - name: Get short SHA
