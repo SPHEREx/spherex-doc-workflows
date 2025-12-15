@@ -81,7 +81,7 @@ jobs:
         run: mv ${{ inputs.doc }}.pdf ${{ steps.pdfname.outputs.PDF_FILENAME }}
 
       - name: Upload PDF artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{steps.pdfname.outputs.PDF_FILENAME }}
           path: ${{steps.pdfname.outputs.PDF_FILENAME }}
